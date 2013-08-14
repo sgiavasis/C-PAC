@@ -1203,8 +1203,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                 collect_transforms = pe.Node(util.Merge(3), name='collect_transforms')
 
                 #performs series of transformations on moving images
-                warp_images = pe.MapNode(ants.WarpTimeSeriesImageMultiTransform(), name='warp_images',
-                                         iterfield=['input_image', 'dimension'])
+                warp_images = pe.Node(ants.WarpTimeSeriesImageMultiTransform(), name='warp_images')
                 warp_images.inputs.dimension = '3'
                 warp_images.inputs.reference_image = c.standardResolutionBrain
 
@@ -1213,8 +1212,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                 collect_transforms_mask = pe.Node(util.Merge(3), name='collect_transforms_mask')
 
                 #performs series of transformations on moving images
-                warp_images_mask = pe.MapNode(ants.WarpTimeSeriesImageMultiTransform(), name='warp_images_mask',
-                                         iterfield=['input_image', 'dimension'])
+                warp_images_mask = pe.Node(ants.WarpTimeSeriesImageMultiTransform(), name='warp_images_mask')
                 warp_images_mask.inputs.dimension = '3'
                 warp_images_mask.inputs.reference_image = c.standard
 
