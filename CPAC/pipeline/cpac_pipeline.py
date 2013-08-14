@@ -7,6 +7,7 @@ import nipype.interfaces.fsl as fsl
 import nipype.interfaces.utility as util
 import nipype.interfaces.io as nio
 from   nipype.pipeline.utils import format_dot
+import nipype.interfaces.ants as ants
 from nipype import config
 from nipype import logging
 from multiprocessing import Process
@@ -331,7 +332,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                                         # it is the warp field output of ANTS, and FLIRT/FNIRT also outputs a warp
                                         # field named this. need to verify that these work interchangeably
                                         'anatomical_to_mni_nonlinear_xfm':(ants_reg_anat_mni, 'outputspec.warp_field'),
-                                        'ants_inverse_warp':(ants_reg_anat_mni, 'outputspec.inverse_warp_field'),
+                                        'mni_to_anatomical_linear_xfm':(ants_reg_anat_mni, 'outputspec.inverse_warp'),
                                         'mni_normalized_anatomical':(ants_reg_anat_mni, 'outputspec.output_brain')})
 
             create_log_node(ants_reg_anat_mni, 'outputspec.output_brain', num_strat)
@@ -717,7 +718,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
     num_strat = 0
     workflow_counter += 1
     
-    if 1 in c.runRegisterFuncToAnat:
+    if 1 in c.runAnatomicalToFunctionalRegistration:
         workflow_bit_id['func_to_anat'] = workflow_counter
         for strat in strat_list:
             func_to_anat = create_bbregister_func_to_anat('func_to_anat_%d' % num_strat)
@@ -768,7 +769,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                 print 'Invalid Connection: Register Functional to MNI:', num_strat, ' resource_pool: ', strat.get_resource_pool()
                 raise
 
-            if 0 in c.runRegisterFuncToAnat:
+            if 0 in c.runAnatomicalToFunctionalRegistration:
                 tmp = strategy()
                 tmp.resource_pool = dict(strat.resource_pool)
                 tmp.leaf_node = (strat.leaf_node)
@@ -1141,7 +1142,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
     if 1 in c.runRegisterFuncToMNI:
 
         # Run FSL ApplyWarp
-        if 1 in c.runRegistrationProcessing:
+        if 1 in c.runRegistrationPreprocessing:
 
             for strat in strat_list:
                 func_mni_warp = pe.Node(interface=fsl.ApplyWarp(),
@@ -1193,7 +1194,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
 
 
         # Run ANTS apply (WarpImageMultiTransform) instead
-        elif 2 in c.runRegistrationProcessing:
+        elif 2 in c.runRegistrationPreprocessing:
 
             for strat in strat_list:
 
@@ -1204,7 +1205,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
 
                 #performs series of transformations on moving images
                 warp_images = pe.Node(ants.WarpTimeSeriesImageMultiTransform(), name='warp_images')
-                warp_images.inputs.dimension = '3'
+                warp_images.inputs.dimension = 3
                 warp_images.inputs.reference_image = c.standardResolutionBrain
 
 
@@ -1213,7 +1214,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
 
                 #performs series of transformations on moving images
                 warp_images_mask = pe.Node(ants.WarpTimeSeriesImageMultiTransform(), name='warp_images_mask')
-                warp_images_mask.inputs.dimension = '3'
+                warp_images_mask.inputs.dimension = 3
                 warp_images_mask.inputs.reference_image = c.standard
 
     
@@ -1267,7 +1268,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                                             'functional_brain_mask_to_standard':(warp_images_mask, 'output_image')})
 
                 strat.append_name(warp_images.name)
-                create_log_node(warp_images, 'out_file', num_strat)
+                create_log_node(warp_images, 'output_image', num_strat)
             
                 num_strat += 1
 
@@ -1446,7 +1447,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
 
 
     inputnode_fwhm = None
-    if len(c.fwhm) > 0:
+    if c.fwhm != None:
 
         inputnode_fwhm = pe.Node(util.IdentityInterface(fields=['fwhm']),
                              name='fwhm_input')
@@ -1459,7 +1460,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
     """
     new_strat_list = []
     num_strat = 0
-    if (1 in c.runALFF) and len(c.fwhm) > 0:
+    if (1 in c.runALFF) and c.fwhm != None:
         for strat in strat_list:
 
 
@@ -1596,7 +1597,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
     new_strat_list = []
     num_strat = 0
 
-    if (1 in c.runReHo) and len(c.fwhm) > 0:
+    if (1 in c.runReHo) and c.fwhm != None:
         for strat in strat_list:
 
 
@@ -1633,7 +1634,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                     workflow.connect(inputnode_fwhm, ('fwhm', set_gauss),
                                     reho_Z_to_standard_smooth, 'op_string')
                     node, out_file = strat.get_node_from_resource_pool('functional_brain_mask_to_standard')
-                    workflow.connect(functional_brain_mask_to_standard, 'out_file',
+                    workflow.connect(node, out_file,
                                      reho_Z_to_standard_smooth, 'operand_files')
 
 
@@ -2094,7 +2095,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
     new_strat_list = []
     num_strat = 0
 
-    if (1 in c.runMultRegSCA) and (1 in c.runROITimeseries) and len(c.fwhm) > 0:
+    if (1 in c.runMultRegSCA) and (1 in c.runROITimeseries) and c.fwhm != None:
         for strat in strat_list:
 
             sc_temp_reg_maps_smooth = pe.MapNode(interface=fsl.MultiImageMaths(),
@@ -2156,7 +2157,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
     new_strat_list = []
     num_strat = 0
 
-    if (1 in c.runDualReg) and (1 in c.runSpatialRegression) and len(c.fwhm) > 0:
+    if (1 in c.runDualReg) and (1 in c.runSpatialRegression) and c.fwhm != None:
         for strat in strat_list:
 
             dr_temp_reg_maps_smooth = pe.Node(interface=fsl.MultiImageMaths(),
@@ -2300,7 +2301,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
     new_strat_list = []
     num_strat = 0
 
-    if (1 in c.runSCA) and (1 in c.runVoxelTimeseries) and len(c.fwhm) > 0:
+    if (1 in c.runSCA) and (1 in c.runVoxelTimeseries) and c.fwhm != None:
         for strat in strat_list:
 
 
@@ -2358,7 +2359,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
     
     Smoothing SCA roi based Z scores and or possibly Z scores in MNI 
     """
-    if (1 in c.runSCA) and (1 in c.runROITimeseries) and len(c.fwhm) > 0:
+    if (1 in c.runSCA) and (1 in c.runROITimeseries) and c.fwhm != None:
         for strat in strat_list:
 
 
@@ -2554,7 +2555,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                 create_log_node(network_centrality, 'outputspec.centrality_outputs', num_strat)
 
                 # if smoothing is required
-                if len(c.fwhm) > 0 :
+                if c.fwhm != None :
 
                     z_score = get_zscore('centrality_zscore_%d' % num_strat)
 
@@ -2935,7 +2936,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                                        function=drop_percent_),
                                        name='dp_sca_roi_%d' % num_strat, iterfield=['measure_file'])
                 drop_percent.inputs.percent_ = 99.999
-                if len(c.fwhm) > 0:
+                if c.fwhm != None:
 
                     sca_overlay, out_file = strat.get_node_from_resource_pool('sca_roi_Z_to_standard_smooth')
                     montage_sca_roi = create_montage('montage_sca_roi_standard_smooth_%d' % num_strat,
@@ -2999,7 +3000,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                                        function=drop_percent_),
                                        name='dp_sca_seed_%d' % num_strat, iterfield=['measure_file'])
                 drop_percent.inputs.percent_ = 99.999
-                if len(c.fwhm) > 0:
+                if c.fwhm != None:
 
                     sca_overlay, out_file = strat.get_node_from_resource_pool('sca_seed_Z_to_standard_smooth')
                     montage_sca_seeds = create_montage('montage_seed_standard_smooth_%d' % num_strat,
@@ -3063,7 +3064,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                                        function=drop_percent_),
                                        name='dp_centrality_%d' % num_strat, iterfield=['measure_file'])
                 drop_percent.inputs.percent_ = 99.999
-                if len(c.fwhm) > 0:
+                if c.fwhm != None:
 
                     centrality_overlay, out_file = strat.get_node_from_resource_pool('centrality_outputs_smoothed')
                     montage_centrality = create_montage('montage_centrality_%d' % num_strat,
@@ -3129,7 +3130,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                                        name='dp_temporal_regression_sca_%d' % num_strat, iterfield=['measure_file'])
                 drop_percent.inputs.percent_ = 99.98
 
-                if len(c.fwhm) > 0:
+                if c.fwhm != None:
 
                     temporal_regression_sca_overlay, out_file = strat.get_node_from_resource_pool('sca_tempreg_maps_z_files_smooth')
                     montage_temporal_regression_sca = create_montage('montage_temporal_regression_sca_%d' % num_strat,
@@ -3185,7 +3186,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                                        name='dp_temporal_dual_regression_%d' % num_strat, iterfield=['measure_file'])
                 drop_percent.inputs.percent_ = 99.98
 
-                if len(c.fwhm) > 0:
+                if c.fwhm != None:
 
                     temporal_dual_regression_overlay, out_file = strat.get_node_from_resource_pool('dr_tempreg_maps_z_files_smooth')
                     montage_temporal_dual_regression = create_montage('montage_temporal_dual_regression_%d' % num_strat,
@@ -3274,7 +3275,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                                        name='dp_reho%d' % num_strat)
                 drop_percent.inputs.percent_ = 99.999
 
-                if len(c.fwhm) > 0:
+                if c.fwhm != None:
                     reho_overlay, out_file = strat.get_node_from_resource_pool('reho_Z_to_standard_smooth')
                     montage_reho = create_montage('montage_reho_%d' % num_strat,
                                   'cyan_to_yellow', 'reho_standard_smooth')
@@ -3333,7 +3334,7 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                 drop_percent_falff = drop_percent.clone('dp_falff%d' % num_strat)
                 drop_percent_falff.inputs.percent_ = 99.999
 
-                if len(c.fwhm) > 0:
+                if c.fwhm != None:
                     alff_overlay, out_file = strat.get_node_from_resource_pool('alff_Z_to_standard_smooth')
                     falff_overlay, out_file_f = strat.get_node_from_resource_pool('falff_Z_to_standard_smooth')
                     montage_alff = create_montage('montage_alff_%d' % num_strat,
@@ -3475,6 +3476,8 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
 
         for name in strat.get_name():
             import re
+
+            print "strat name: ", strat.get_name()
             
             extra_string = re.search('_\d+', name).group(0)
             
