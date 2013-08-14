@@ -1201,19 +1201,19 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                 # THIS SHOULD ALL BE COMBINED INTO ITS OWN WORKFLOW IN REGISTRATION.PY
 
                 #collects series of transformations to be applied to the moving images
-                collect_transforms = pe.Node(util.Merge(3), name='collect_transforms')
+                collect_transforms = pe.Node(util.Merge(3), name='collect_transforms_%d' % num_strat)
 
                 #performs series of transformations on moving images
-                warp_images = pe.Node(ants.WarpTimeSeriesImageMultiTransform(), name='warp_images')
+                warp_images = pe.Node(ants.WarpTimeSeriesImageMultiTransform(), name='warp_images_%d' % num_strat)
                 warp_images.inputs.dimension = 3
                 warp_images.inputs.reference_image = c.standardResolutionBrain
 
 
                 #collects series of transformations to be applied to the moving images
-                collect_transforms_mask = pe.Node(util.Merge(3), name='collect_transforms_mask')
+                collect_transforms_mask = pe.Node(util.Merge(3), name='collect_transforms_mask_%d' % num_strat)
 
                 #performs series of transformations on moving images
-                warp_images_mask = pe.Node(ants.WarpTimeSeriesImageMultiTransform(), name='warp_images_mask')
+                warp_images_mask = pe.Node(ants.WarpTimeSeriesImageMultiTransform(), name='warp_images_mask_%d' % num_strat)
                 warp_images_mask.inputs.dimension = 3
                 warp_images_mask.inputs.reference_image = c.standard
 
@@ -1221,17 +1221,14 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
                 try:
                     # Premat
                     node, out_file = strat.get_node_from_resource_pool('functional_to_anat_linear_xfm')
-                    workflow.connect(node, out_file,
-                                     collect_transforms, 'in3')
+                    workflow.connect(node, out_file, collect_transforms, 'in3')
     
                     # Field file
                     node, out_file = strat.get_node_from_resource_pool('anatomical_to_mni_nonlinear_xfm')
-                    workflow.connect(node, out_file,
-                                     collect_transforms, 'in1')
+                    workflow.connect(node, out_file, collect_transforms, 'in1')
 
                     node, out_file = strat.get_node_from_resource_pool('ants_affine_xfm')
-                    workflow.connect(node, out_file,
-                                     collect_transforms, 'in2')
+                    workflow.connect(node, out_file, collect_transforms, 'in2')
 
                     node, out_file = strat.get_leaf_properties()
                     workflow.connect(node, out_file, warp_images, 'input_image')
@@ -1242,17 +1239,14 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
 
                     # Premat
                     node, out_file = strat.get_node_from_resource_pool('functional_to_anat_linear_xfm')
-                    workflow.connect(node, out_file,
-                                     collect_transforms_mask, 'in3')
+                    workflow.connect(node, out_file, collect_transforms_mask, 'in3')
     
                     # Field file
                     node, out_file = strat.get_node_from_resource_pool('anatomical_to_mni_nonlinear_xfm')
-                    workflow.connect(node, out_file,
-                                     collect_transforms_mask, 'in1')
+                    workflow.connect(node, out_file, collect_transforms_mask, 'in1')
 
                     node, out_file = strat.get_node_from_resource_pool('functional_brain_mask')
-                    workflow.connect(node, out_file,
-                                     collect_transforms_mask, 'in2')
+                    workflow.connect(node, out_file, collect_transforms_mask, 'in2')
 
                     node, out_file = strat.get_node_from_resource_pool('functional_brain_mask')
                     workflow.connect(node, out_file, warp_images_mask, 'input_image')
@@ -3476,8 +3470,6 @@ def prep_workflow(sub_dict, c, strategies, p_name=None):
 
         for name in strat.get_name():
             import re
-
-            print "strat name: ", strat.get_name()
             
             extra_string = re.search('_\d+', name).group(0)
             
