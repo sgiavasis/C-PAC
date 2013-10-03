@@ -104,7 +104,7 @@ class Mybook(wx.Treebook):
 
         self.AddPage(page8, "Functional Preprocessing", wx.ID_ANY)
         self.AddSubPage(page9, "Time Series Options", wx.ID_ANY)
-        self.AddSubPage(page10, "Anatomical to Functional Registration", wx.ID_ANY)
+        self.AddSubPage(page10, "Functional to Anatomical Registration", wx.ID_ANY)
         self.AddSubPage(page11, "Functional to MNI Registration", wx.ID_ANY)
 
         self.AddPage(page12, "Nuisance", wx.ID_ANY)
@@ -237,12 +237,17 @@ class MainFrame(wx.Frame):
             raise Exception("Error importing file - %s , Make"
                       " sure it is in correct yaml format")
 
+
         for page in self.nb.get_page_list():
+
             ctrl_list = page.page.get_ctrl_list()
 
             for ctrl in ctrl_list:
+
                 name = ctrl.get_name()
+
                 val = config_file_map.get(str(name))
+
                 #print "loading ctrl ->", name, "->", val
                 sample_list = ctrl.get_values()
                 #print "sample_list -->", sample_list
@@ -300,6 +305,7 @@ class MainFrame(wx.Frame):
                 #print "setting value in ctrl -->", value
                 #print "type -->", type(value)
                 ctrl.set_value(value)
+
 
     def submit_item(self, event):
         import os
@@ -366,11 +372,14 @@ class MainFrame(wx.Frame):
 
         dlg = wx.FileDialog(
             self, message="Save CPAC configuration file as ...", defaultDir=os.getcwd(),
-            defaultFile="", wildcard="YAML files(*.yaml, *.yml)|*.yaml;*.yml", style=wx.SAVE)
+            defaultFile="pipeline_config", wildcard="YAML files(*.yaml, *.yml)|*.yaml;*.yml", style=wx.SAVE)
         dlg.SetFilterIndex(2)
 
         if dlg.ShowModal() == wx.ID_OK:
             self.path = dlg.GetPath()
+
+            # Strips any user-input file extension and enforces .yml as the extension
+            self.path = os.path.splitext(self.path)[0] + '.yml'
 
             self.write(self.path, config_list)
             dlg.Destroy()
@@ -606,4 +615,3 @@ class MainFrame(wx.Frame):
             print e
             print "Error Writing the pipeline configuration file %s" % path
             raise Exception
-
