@@ -364,7 +364,7 @@ def get_spatial_map_timeseries(wf_name='spatial_map_timeseries'):
             path to input functional data
         inputspec.subject_mask : string (nifti file)
             path to subject functional mask
-        inputspec.ICA_map : string (nifti file)
+        inputspec.spatial_map : string (nifti file)
             path to Spatial Maps
         inputspec.demean : Boolean
             control whether to demean model and data

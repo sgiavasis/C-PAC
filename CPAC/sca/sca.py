@@ -194,10 +194,10 @@ def create_temporal_reg(wflow_name='temporal_reg', which='SR'):
 
     Workflow Outputs::
 
-        outputspec.component_map : string (nifti file)
+        outputspec.temp_reg_map : string (nifti file)
             GLM parameter estimate image for each timeseries in the input file
 
-        outputspec.component_map_z : string (nifti file)
+        outputspec.temp_reg_map_z : string (nifti file)
             Normalized version of the GLM parameter estimates
 
 
