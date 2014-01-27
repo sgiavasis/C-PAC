@@ -46,6 +46,14 @@ class VMHCSettings(wx.ScrolledWindow):
                  values=["On","Off"],
                  wkf_switch = True)
         
+        self.page.add(label="VMHC Option ", 
+                 control=control.CHOICE_BOX, 
+                 name='fastVMHC', 
+                 type=dtype.LSTR, 
+                 comment="Fast VMHC is an experimental option which reduces computation time.", 
+                 values=["Normal VMHC","Fast VMHC","Both (fork)"],
+                 wkf_switch = True)
+        
         self.page.add(label="Symmetric Template (Brain Only) ", 
          control=control.COMBO_BOX, 
          name='brainSymmetric', 
@@ -66,10 +74,32 @@ class VMHCSettings(wx.ScrolledWindow):
          type=dtype.STR, 
          values = "$FSLDIR/data/standard/MNI152_T1_${standardResolution}_brain_mask_symmetric_dil.nii.gz",
          comment="Included as part of the 'Image Resource Files' package available on the Install page of the User Guide.\n\nIt is not necessary to change this path unless you intend to use a non-standard symmetric template.")
+
+        self.page.add(label="Template to Symmetric Template Transform (ANTS) - Fast VMHC only ", 
+         control=control.COMBO_BOX, 
+         name='templateToSymmetricWarpANTS', 
+         type=dtype.STR, 
+         values = "$FSLDIR/data/standard/ANTS_MNI_to_sym_Warp.nii.gz",
+         comment="Included as part of the 'Image Resource Files' package available on the Install page of the User Guide.\n\nIt is not necessary to change this path unless you intend to use a non-standard symmetric template.")
+        
+        self.page.add(label="Template to Symmetric Template Affine (ANTS) - Fast VMHC only ", 
+         control=control.COMBO_BOX, 
+         name='templateToSymmetricAffineANTS', 
+         type=dtype.STR, 
+         values = "$FSLDIR/data/standard/ANTS_MNI_to_sym_Affine.txt",
+         comment="Included as part of the 'Image Resource Files' package available on the Install page of the User Guide.\n\nIt is not necessary to change this path unless you intend to use a non-standard symmetric template.")
+        
+        self.page.add(label="Template to Symmetric Template Transform (FSL) - Fast VMHC only ", 
+         control=control.COMBO_BOX, 
+         name='templateToSymmetricWarpFSL', 
+         type=dtype.STR, 
+         values = "$FSLDIR/data/standard/FSL_MNI_to_sym_Warp.nii.gz",
+         comment="Included as part of the 'Image Resource Files' package available on the Install page of the User Guide.\n\nIt is not necessary to change this path unless you intend to use a non-standard symmetric template.")
+
         
         self.page.add(label="FLIRT Configuration File ", 
          control=control.COMBO_BOX, 
-         name='configFileTwomm', 
+         name='templateToSymmetricWarpFSL', 
          type=dtype.STR, 
          values = "$FSLDIR/etc/flirtsch/T1_2_MNI152_${standardResolution}.cnf",
          comment="Included as part of the 'Image Resource Files' package available on the Install page of the User Guide.\n\nIt is not necessary to change this path unless you intend to use a non-standard symmetric template.")

@@ -81,9 +81,13 @@ mrsNorm,Normalize Time Series,SCA Options
 runDualReg,Run Dual Regression,Dual Regression Options
 drNorm,Normalize Time Series,Dual Regression Options
 runVMHC,Calculate VMHC,VMHC Settings
+fastVMHC,VMHC Option,VMHC Settings
 brainSymmetric,Symmetric Template (Brain Only),VMHC Settings
 symmStandard,Symmetric Template (With Skull),VMHC Settings
 twommBrainMaskDiluted,Dilated Symmetric Brain Mask,VMHC Settings
+templateToSymmetricWarpANTS,Template to Symmetric Template Transform (ANTS) - Fast VMHC only,VMHC Settings
+templateToSymmetricAffineANTS,Template to Symmetric Template Affine (ANTS) - Fast VMHC only,VMHC Settings
+templateToSymmetricWarpFSL,Template to Symmetric Template Transform (FSL) - Fast VMHC only,VMHC Settings
 configFileTwomm,FLIRT Configuration File,VMHC Settings
 runALFF,Calculate ALFF and f/ALFF,ALFF and f/ALFF Options
 highPassFreqALFF,f/ALFF High-Pass Cutoff,ALFF and f/ALFF Options

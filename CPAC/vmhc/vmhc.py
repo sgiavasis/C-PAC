@@ -456,3 +456,479 @@ def create_vmhc(use_ants):
 
 
     return vmhc
+
+
+
+def create_fast_vmhc(use_ants):
+
+    """
+    Compute the map of brain functional homotopy, the high degree of synchrony in spontaneous activity between geometrically corresponding interhemispheric (i.e., homotopic) regions.
+
+
+
+    Parameters
+    ----------
+
+    None
+
+    Returns
+    -------
+
+    vmhc_workflow : workflow
+
+        Voxel Mirrored Homotopic Connectivity Analysis Workflow
+
+
+
+    Notes
+    -----
+
+    `Source <https://github.com/FCP-INDI/C-PAC/blob/master/CPAC/vmhc/vmhc.py>`_ 
+
+    Workflow Inputs::
+
+        inputspec.brain : string (existing nifti file)
+            Anatomical image(without skull)
+
+        inputspec.brain_symmetric : string (existing nifti file)
+            MNI152_T1_2mm_brain_symmetric.nii.gz
+ 
+        inputspec.rest_res_filt : string (existing nifti file)
+            Band passed Image with nuisance signal regressed out(and optionally scrubbed). Recommended bandpass filter (0.001,0.1) )
+
+        inputspec.reorient : string (existing nifti file)
+            RPI oriented anatomical data
+
+        inputspec.example_func2highres_mat : string (existing affine transformation .mat file)
+            Specifies an affine transform that should be applied to the example_func before non linear warping
+
+        inputspec.standard : string (existing nifti file)
+            MNI152_T1_standard_resolution_brain.nii.gz
+
+        inputspec.symm_standard : string (existing nifti file)
+            MNI152_T1_2mm_symmetric.nii.gz
+
+        inputspec.twomm_brain_mask_dil : string (existing nifti file)
+            MNI152_T1_2mm_brain_mask_symmetric_dil.nii.gz
+
+        inputspec.config_file_twomm_symmetric : string (existing .cnf file)
+            T1_2_MNI152_2mm_symmetric.cnf
+
+        inputspec.rest_mask : string (existing nifti file)
+            A mask functional volume(derived by dilation from motion corrected functional volume)
+
+        fwhm_input.fwhm : list (float) 
+            For spatial smoothing the Z-transformed correlations in MNI space.
+            Generally the value of this parameter is 1.5 or 2 times the voxel size of the input Image.
+
+        inputspec.mean_functional : string (existing nifti file)
+            The mean functional image for use in the func-to-anat registration matrix conversion
+            to ITK (ANTS) format, if the user selects to use ANTS.
+
+        
+    Workflow Outputs::
+
+        outputspec.highres2symmstandard : string (nifti file)
+            Linear registration of T1 image to symmetric standard image
+
+        outputspec.highres2symmstandard_mat : string (affine transformation .mat file)
+            An affine transformation .mat file from linear registration and used in non linear registration
+
+        outputspec.highres2symmstandard_warp : string (nifti file)
+            warp file from Non Linear registration of T1 to symmetrical standard brain
+
+        outputspec.fnirt_highres2symmstandard : string (nifti file)
+            Non Linear registration of T1 to symmetrical standard brain
+
+        outputspec.highres2symmstandard_jac : string (nifti file)
+            jacobian determinant image from Non Linear registration of T1 to symmetrical standard brain
+
+        outputspec.rest_res_2symmstandard : string (nifti file)
+            nonlinear registration (func to standard) image
+
+        outputspec.VMHC_FWHM_img : string (nifti file)
+            pearson correlation between res2standard and flipped res2standard
+
+        outputspec.VMHC_Z_FWHM_img : string (nifti file)
+            Fisher Z transform map
+
+        outputspec.VMHC_Z_stat_FWHM_img : string (nifti file)
+            Z statistic map
+
+    Order of commands:
+
+    - Perform linear registration of Anatomical brain in T1 space to symmetric standard space. For details see `flirt <http://www.fmrib.ox.ac.uk/fsl/flirt/index.html>`_::
+
+        flirt
+        -ref MNI152_T1_2mm_brain_symmetric.nii.gz
+        -in mprage_brain.nii.gz
+        -out highres2symmstandard.nii.gz
+        -omat highres2symmstandard.mat
+        -cost corratio
+        -searchcost corratio
+        -dof 12
+        -interp trilinear    
+        
+    - Perform nonlinear registration (higres to standard) to symmetric standard brain. For details see `fnirt <http://fsl.fmrib.ox.ac.uk/fsl/fnirt/>`_::
+    
+        fnirt
+        --in=head.nii.gz
+        --aff=highres2symmstandard.mat
+        --cout=highres2symmstandard_warp.nii.gz
+        --iout=fnirt_highres2symmstandard.nii.gz
+        --jout=highres2symmstandard_jac.nii.gz
+        --config=T1_2_MNI152_2mm_symmetric.cnf
+        --ref=MNI152_T1_2mm_symmetric.nii.gz
+        --refmask=MNI152_T1_2mm_brain_mask_symmetric_dil.nii.gz
+        --warpres=10,10,10 
+
+    - Perform spatial smoothing on the input functional image(inputspec.rest_res_filt).  For details see `PrinciplesSmoothing <http://imaging.mrc-cbu.cam.ac.uk/imaging/PrinciplesSmoothing>`_ `fslmaths <http://www.fmrib.ox.ac.uk/fslcourse/lectures/practicals/intro/index.htm>`_::
+
+        fslmaths rest_res_filt.nii.gz
+        -kernel gauss FWHM/ sqrt(8-ln(2))
+        -fmean -mas rest_mask.nii.gz
+        rest_res_filt_FWHM.nii.gz
+        
+    - Apply nonlinear registration (func to standard). For details see  `applywarp <http://www.fmrib.ox.ac.uk/fsl/fnirt/warp_utils.html#applywarp>`_::
+        
+        applywarp
+        --ref=MNI152_T1_2mm_symmetric.nii.gz
+        --in=rest_res_filt_FWHM.nii.gz
+        --out=rest_res_2symmstandard.nii.gz
+        --warp=highres2symmstandard_warp.nii.gz
+        --premat=example_func2highres.mat
+        
+        
+    - Copy and L/R swap the output of applywarp command (rest_res_2symmstandard.nii.gz). For details see  `fslswapdim <http://fsl.fmrib.ox.ac.uk/fsl/fsl4.0/avwutils/index.html>`_::
+
+        fslswapdim
+        rest_res_2symmstandard.nii.gz
+        -x y z
+        tmp_LRflipped.nii.gz
+
+
+    - Calculate pearson correlation between rest_res_2symmstandard.nii.gz and flipped rest_res_2symmstandard.nii.gz(tmp_LRflipped.nii.gz). For details see  `3dTcorrelate <http://afni.nimh.nih.gov/pub/dist/doc/program_help/3dTcorrelate.html>`_::
+        
+        3dTcorrelate
+        -pearson
+        -polort -1
+        -prefix VMHC_FWHM.nii.gz
+        rest_res_2symmstandard.nii.gz
+        tmp_LRflipped.nii.gz
+    
+    
+    - Fisher Z Transform the correlation. For details see `3dcalc <http://afni.nimh.nih.gov/pub/dist/doc/program_help/3dcalc.html>`_::
+        
+        3dcalc
+        -a VMHC_FWHM.nii.gz
+        -expr 'log((a+1)/(1-a))/2'
+        -prefix VMHC_FWHM_Z.nii.gz
+    
+        
+    - Calculate the number of volumes(nvols) in flipped rest_res_2symmstandard.nii.gz(tmp_LRflipped.nii.gz) ::
+        
+        -Use Nibabel to do this
+        
+        
+    - Compute the Z statistic map ::
+        
+        3dcalc
+        -a VMHC_FWHM_Z.nii.gz
+        -expr 'a*sqrt('${nvols}'-3)'
+        -prefix VMHC_FWHM_Z_stat.nii.gz
+    
+    
+    Workflow:
+    
+    .. image:: ../images/vmhc_graph.dot.png
+        :width: 500 
+    
+    Workflow Detailed:
+    
+    .. image:: ../images/vmhc_detailed_graph.dot.png
+        :width: 500 
+    
+
+    References
+    ----------
+    
+    .. [1] Zuo, X.-N., Kelly, C., Di Martino, A., Mennes, M., Margulies, D. S., Bangaru, S., Grzadzinski, R., et al. (2010). Growing together and growing apart: regional and sex differences in the lifespan developmental trajectories of functional homotopy. The Journal of neuroscience : the official journal of the Society for Neuroscience, 30(45), 15034-43. doi:10.1523/JNEUROSCI.2612-10.2010
+
+
+    Examples
+    --------
+    
+    >>> vmhc_w = create_vmhc()
+    >>> vmhc_w.inputs.inputspec.brain_symmetric = 'MNI152_T1_2mm_brain_symmetric.nii.gz'
+    >>> vmhc_w.inputs.inputspec.symm_standard = 'MNI152_T1_2mm_symmetric.nii.gz'
+    >>> vmhc_w.inputs.inputspec.twomm_brain_mask_dil = 'MNI152_T1_2mm_brain_mask_symmetric_dil.nii.gz'
+    >>> vmhc_w.inputs.inputspec.config_file_twomm = 'T1_2_MNI152_2mm_symmetric.cnf'
+    >>> vmhc_w.inputs.inputspec.standard = 'MNI152_T1_2mm.nii.gz'
+    >>> vmhc_w.inputs.fwhm_input.fwhm = [4.5, 6]
+    >>> vmhc_w.get_node('fwhm_input').iterables = ('fwhm', [4.5, 6])
+    >>> vmhc_w.inputs.inputspec.rest_res = os.path.abspath('/home/data/Projects/Pipelines_testing/Dickstein/subjects/s1001/func/original/rest_res_filt.nii.gz')
+    >>> vmhc_w.inputs.inputspec.reorient = os.path.abspath('/home/data/Projects/Pipelines_testing/Dickstein/subjects/s1001/anat/mprage_RPI.nii.gz')
+    >>> vmhc_w.inputs.inputspec.brain = os.path.abspath('/home/data/Projects/Pipelines_testing/Dickstein/subjects/s1001/anat/mprage_brain.nii.gz')
+    >>> vmhc_w.inputs.inputspec.example_func2highres_mat = os.path.abspath('/home/data/Projects/Pipelines_testing/Dickstein/subjects/s1001/func/original/reg/example_func2highres.mat')
+    >>> vmhc_w.inputs.inputspec.rest_mask = os.path.abspath('/home/data/Projects/Pipelines_testing/Dickstein/subjects/s1001/func/original/rest_mask.nii.gz')
+    >>> vmhc_w.run() # doctest: +SKIP
+
+    """
+
+    from CPAC.registration import create_fsl_to_itk_conversion
+    import nipype.interfaces.ants as ants
+
+    vmhc = pe.Workflow(name='vmhc_workflow')
+    inputNode = pe.Node(util.IdentityInterface(fields=['anat_brain',
+                                                'mni_anatomical',
+                                                'anat_to_template_warp',
+                                                'anat_to_template_affine',
+                                                'template_to_sym_warp',
+                                                'template_to_sym_affine',
+                                                'brain_symmetric',   # symmetric template (brain only)
+                                                'rest_res',                 # functional preproc
+                                                'example_func2highres_mat', # func-to-anat affine
+                                                'symm_standard',
+                                                'rest_mask',
+                                                'mean_functional']),
+                        name='inputspec')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['fnirt_highres2symmstandard',
+                                                'rest_res_2symmstandard',
+                                                'VMHC_FWHM_img',
+                                                'VMHC_Z_FWHM_img',
+                                                'VMHC_Z_stat_FWHM_img'
+                                                ]),
+                        name='outputspec')
+
+
+    inputnode_fwhm = pe.Node(util.IdentityInterface(fields=['fwhm']),
+                             name='fwhm_input')
+
+
+    if use_ants == False:
+
+        apply_fsl_template_to_sym_xfm = pe.Node(interface=fsl.ApplyWarp(),
+                          name='apply_fsl_template_to_sym_xfm')
+
+        ## Apply nonlinear registration (func to standard)
+        apply_fsl_func_to_template_xfm = pe.Node(interface=fsl.ApplyWarp(),
+                          name='apply_fsl_func_to_template_xfm')
+        
+        ## Apply nonlinear registration (func to standard)
+        apply_fsl_func_to_sym_xfm = pe.Node(interface=fsl.ApplyWarp(),
+                          name='apply_fsl_func_to_sym_xfm')
+
+    elif use_ants == True:
+
+        #collects series of transformations to be applied to the moving images
+        collect_transforms_3d = pe.Node(util.Merge(2), name='fast_vmhc_collect_transforms_3d')
+
+        # ANTS warp image etc.
+        apply_template_to_sym_xfm = pe.Node(interface=ants.WarpImageMultiTransform(), name='apply_template_to_sym_xfm')
+        apply_template_to_sym_xfm.inputs.dimension = 3
+        
+        # converts FSL-format .mat affine xfm into ANTS-format .txt
+        # .mat affine comes from Func->Anat registration
+        fsl_reg_2_itk = create_fsl_to_itk_conversion(0, 'fast_vmhc_fsl_reg_2_itk')
+
+        #collects series of transformations to be applied to the moving images
+        collect_transforms_4d = pe.Node(util.Merge(5), name='fast_vmhc_collect_transforms_4d')
+
+        # performs series of transformations on moving images
+        apply_func_to_sym_xfm = pe.Node(interface=ants.WarpTimeSeriesImageMultiTransform(), name='fast_vmhc_ants_apply_4d_warp')
+        apply_func_to_sym_xfm.inputs.dimension = 4
+
+
+    ## copy and L/R swap file
+    copy_and_L_R_swap = pe.Node(interface=fsl.SwapDimensions(),
+                      name='copy_and_L_R_swap')
+    copy_and_L_R_swap.inputs.new_dims = ('-x', 'y', 'z')
+
+    ## caculate vmhc
+    pearson_correlation = pe.Node(interface=preprocess.TCorrelate(),
+                      name='pearson_correlation')
+    pearson_correlation.inputs.pearson = True
+    pearson_correlation.inputs.polort = -1
+    pearson_correlation.inputs.outputtype = 'NIFTI_GZ'
+
+    z_trans = pe.Node(interface=preprocess.Calc(),
+                         name='z_trans')
+    z_trans.inputs.expr = 'log((1+a)/(1-a))/2'
+    z_trans.inputs.outputtype = 'NIFTI_GZ'
+
+    z_stat = pe.Node(interface=preprocess.Calc(),
+                        name='z_stat')
+    z_stat.inputs.outputtype = 'NIFTI_GZ'
+
+    NVOLS = pe.Node(util.Function(input_names=['in_files'],
+                                  output_names=['nvols'],
+                    function=get_img_nvols),
+                    name='NVOLS')
+
+    generateEXP = pe.Node(util.Function(input_names=['nvols'],
+                                        output_names=['expr'],
+                          function=get_operand_expression),
+                          name='generateEXP')
+
+
+    smooth = pe.Node(interface=fsl.MultiImageMaths(),
+                        name='smooth')
+
+
+    if use_ants == False:
+        
+        vmhc.connect(inputNode, 'mni_anatomical',
+                     apply_fsl_template_to_sym_xfm, 'in_file')
+        vmhc.connect(inputNode, 'brain_symmetric',
+                     apply_fsl_template_to_sym_xfm, 'ref_file')
+        vmhc.connect(inputNode, 'template_to_sym_warp',
+                     apply_fsl_template_to_sym_xfm, 'field_file')
+
+        vmhc.connect(inputNode, 'rest_res',
+                     smooth, 'in_file')
+        vmhc.connect(inputnode_fwhm, ('fwhm', set_gauss),
+                     smooth, 'op_string')
+        vmhc.connect(inputNode, 'rest_mask',
+                     smooth, 'operand_files')
+        
+        # apply all of the warps for the 4-d func-to-symmetric
+        # transform application, FSL-format:
+        #    - template->symmetric warp (.nii.gz)
+        #    - anat->template warp (.nii.gz)
+        #    - func->anat affine (.mat)
+        
+        vmhc.connect(smooth, 'out_file',
+                     apply_fsl_func_to_template_xfm, 'in_file')
+        vmhc.connect(inputNode, 'symm_standard',
+                     apply_fsl_func_to_template_xfm, 'ref_file')
+        vmhc.connect(inputNode, 'anat_to_template_warp',
+                     apply_fsl_func_to_template_xfm, 'field_file')   # anat->template warp
+        vmhc.connect(inputNode, 'example_func2highres_mat',
+                     apply_fsl_func_to_template_xfm, 'premat')       # func-to-anat affine
+        
+        
+        vmhc.connect(apply_fsl_func_to_template_xfm, 'out_file',
+                     apply_fsl_func_to_sym_xfm, 'in_file')
+        vmhc.connect(inputNode, 'symm_standard',
+                     apply_fsl_func_to_sym_xfm, 'ref_file')
+        vmhc.connect(inputNode, 'template_to_sym_warp',
+                     apply_fsl_func_to_sym_xfm, 'field_file')             # template->sym warp
+        
+        
+        vmhc.connect(apply_fsl_func_to_sym_xfm, 'out_file',
+                     copy_and_L_R_swap, 'in_file')
+        vmhc.connect(apply_fsl_func_to_sym_xfm, 'out_file',
+                     pearson_correlation, 'xset')
+
+
+    elif use_ants == True:
+        
+        # connections - applying the template-to-symmetric template
+        #               transforms to the template-registered
+        #               anatomical
+        
+        vmhc.connect(inputNode, 'template_to_sym_warp',
+                     collect_transforms_3d, 'in1')
+        vmhc.connect(inputNode, 'template_to_sym_affine',
+                     collect_transforms_3d, 'in2')
+        
+        vmhc.connect(inputNode, 'mni_anatomical',
+                     apply_template_to_sym_xfm, 'input_image')
+        vmhc.connect(inputNode, 'brain_symmetric',
+                     apply_template_to_sym_xfm, 'reference_image')
+        vmhc.connect(collect_transforms_3d, 'out',
+                     apply_template_to_sym_xfm, 'transformation_series')
+
+
+        # functional apply warp stuff
+        vmhc.connect(inputNode, 'rest_res',
+                     smooth, 'in_file')
+        vmhc.connect(inputnode_fwhm, ('fwhm', set_gauss),
+                     smooth, 'op_string')
+        vmhc.connect(inputNode, 'rest_mask',
+                     smooth, 'operand_files')
+        
+        # convert func-to-anat FSL-format affine into
+        # ITK-format (ANTS) - this needs to be its own function later
+        vmhc.connect(inputNode, 'anat_brain',
+                     fsl_reg_2_itk, 'inputspec.reference_file')
+        vmhc.connect(inputNode, 'mean_functional',
+                     fsl_reg_2_itk, 'inputspec.source_file')
+        vmhc.connect(inputNode, 'example_func2highres_mat',
+                     fsl_reg_2_itk, 'inputspec.transform_file')
+        
+        # collect all of the warps for the 4-d func-to-symmetric
+        # transform application:
+        #    - template->symmetric warp (.nii.gz)
+        #    - template->symmetric affine (.txt)
+        #    - anat->template warp (.nii.gz)
+        #    - anat->template affine (.txt)
+        #    - func->anat affine (.txt) (converted from FSL to ITK)
+        vmhc.connect(inputNode, 'template_to_sym_warp',
+                     collect_transforms_4d, 'in1')
+        vmhc.connect(inputNode, 'template_to_sym_affine',
+                     collect_transforms_4d, 'in2')
+        vmhc.connect(inputNode, 'anat_to_template_warp',
+                     collect_transforms_4d, 'in3')
+        vmhc.connect(inputNode, 'anat_to_template_affine',
+                     collect_transforms_4d, 'in4')
+        vmhc.connect(fsl_reg_2_itk, 'outputspec.itk_transform',
+                     collect_transforms_4d, 'in5')
+        
+
+        
+        vmhc.connect(smooth, 'out_file',
+                     apply_func_to_sym_xfm, 'input_image')
+        vmhc.connect(inputNode, 'brain_symmetric',
+                     apply_func_to_sym_xfm, 'reference_image')
+        vmhc.connect(collect_transforms_4d, 'out',
+                     apply_func_to_sym_xfm, 'transformation_series')
+
+        vmhc.connect(apply_func_to_sym_xfm, 'output_image',
+                     copy_and_L_R_swap, 'in_file')
+        vmhc.connect(apply_func_to_sym_xfm, 'output_image',
+                     pearson_correlation, 'xset')
+
+
+
+    vmhc.connect(copy_and_L_R_swap, 'out_file',
+                 pearson_correlation, 'yset')
+    vmhc.connect(pearson_correlation, 'out_file',
+                 z_trans, 'in_file_a')
+    vmhc.connect(copy_and_L_R_swap, 'out_file',
+                 NVOLS, 'in_files')
+    vmhc.connect(NVOLS, 'nvols',
+                 generateEXP, 'nvols')
+    vmhc.connect(z_trans, 'out_file',
+                 z_stat, 'in_file_a')
+    vmhc.connect(generateEXP, 'expr',
+                 z_stat, 'expr')
+
+    if use_ants == False:
+
+        # FSL warp outputs to outputnode
+        vmhc.connect(apply_fsl_template_to_sym_xfm, 'out_file',
+                     outputNode, 'fnirt_highres2symmstandard')
+        vmhc.connect(apply_fsl_func_to_sym_xfm, 'out_file',
+                     outputNode, 'rest_res_2symmstandard')
+
+    elif use_ants == True:
+
+        # ANTS warp outputs to outputnode
+        vmhc.connect(apply_template_to_sym_xfm, 'output_image',
+                     outputNode, 'fnirt_highres2symmstandard')
+        vmhc.connect(apply_func_to_sym_xfm, 'output_image',
+                     outputNode, 'rest_res_2symmstandard')
+
+
+    vmhc.connect(pearson_correlation, 'out_file',
+                 outputNode, 'VMHC_FWHM_img')
+    vmhc.connect(z_trans, 'out_file',
+                 outputNode, 'VMHC_Z_FWHM_img')
+    vmhc.connect(z_stat, 'out_file',
+                 outputNode, 'VMHC_Z_stat_FWHM_img')
+
+
+    return vmhc
+

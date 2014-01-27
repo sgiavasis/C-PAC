@@ -38,7 +38,7 @@ from CPAC.qc.utils import register_pallete, make_edge, drop_percent_, \
 from CPAC.utils.utils import extract_one_d, set_gauss, \
                              prepare_symbolic_links, \
                              get_scan_params, get_tr, extract_txt, create_log, create_log_template   ###
-from CPAC.vmhc.vmhc import create_vmhc
+from CPAC.vmhc.vmhc import create_vmhc, create_fast_vmhc
 from CPAC.reho.reho import create_reho
 from CPAC.alff.alff import create_alff
 from CPAC.sca.sca import create_sca, create_temporal_reg
@@ -384,7 +384,7 @@ def prep_workflow(sub_dict, c, strategies, run, p_name=None):
                                             # it is the warp field output of ANTS, and FLIRT/FNIRT also outputs a warp
                                             # field named this. need to verify that these work interchangeably
                                             'anatomical_to_mni_nonlinear_xfm':(ants_reg_anat_mni, 'outputspec.warp_field'),
-                                            'mni_to_anatomical_linear_xfm':(ants_reg_anat_mni, 'outputspec.inverse_warp'), #<---- this is the mni to anatomical NONLINEAR xfm
+                                            'mni_to_anatomical_linear_xfm':(ants_reg_anat_mni, 'outputspec.inverse_warp'), #<---- this is the mni to anatomical NONLINEAR xfm  
                                             'mni_normalized_anatomical':(ants_reg_anat_mni, 'outputspec.output_brain')})
 
                 create_log_node(ants_reg_anat_mni, 'outputspec.output_brain', num_strat)
@@ -1451,70 +1451,179 @@ def prep_workflow(sub_dict, c, strategies, run, p_name=None):
         
         for strat in strat_list:
             
-            nodes = getNodeList(strat)
+            if 0 in c.fastVMHC:
             
-            if 'func_mni_fsl_warp' in nodes:
-                preproc = create_vmhc(False)
-            else:
-                preproc = create_vmhc(True)
-
-            preproc.inputs.inputspec.brain_symmetric = \
-                                            c.brainSymmetric
-            preproc.inputs.inputspec.symm_standard = \
-                                            c.symmStandard
-            preproc.inputs.inputspec.twomm_brain_mask_dil = \
-                                            c.twommBrainMaskDiluted
-            preproc.inputs.inputspec.config_file_twomm = \
-                                            c.configFileTwomm
-            preproc.inputs.inputspec.standard = \
-                                            c.standard
-            preproc.inputs.fwhm_input.fwhm = c.fwhm
-            preproc.get_node('fwhm_input').iterables = ('fwhm',
-                                                        c.fwhm)
-
-
-            vmhc = preproc.clone('vmhc_%d' % num_strat)
-
-
-
-            try:
-                node, out_file = strat.get_leaf_properties()
-                workflow.connect(node, out_file,
-                                 vmhc, 'inputspec.rest_res')
+                nodes = getNodeList(strat)
                 
-                node, out_file = strat.get_node_from_resource_pool('functional_to_anat_linear_xfm')
-                workflow.connect(node, out_file,
-                                 vmhc, 'inputspec.example_func2highres_mat')
+                if 'func_mni_fsl_warp' in nodes:
+                    preproc = create_vmhc(False)
+                else:
+                    preproc = create_vmhc(True)
+    
+                preproc.inputs.inputspec.brain_symmetric = \
+                                                c.brainSymmetric
+                preproc.inputs.inputspec.symm_standard = \
+                                                c.symmStandard
+                preproc.inputs.inputspec.twomm_brain_mask_dil = \
+                                                c.twommBrainMaskDiluted
+                preproc.inputs.inputspec.config_file_twomm = \
+                                                c.configFileTwomm
+                preproc.inputs.inputspec.standard = \
+                                                c.standard
+                preproc.inputs.fwhm_input.fwhm = c.fwhm
+                preproc.get_node('fwhm_input').iterables = ('fwhm',
+                                                            c.fwhm)
+    
+    
+                vmhc = preproc.clone('vmhc_%d' % num_strat)
+    
+    
+    
+                try:
+                    node, out_file = strat.get_leaf_properties()
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.rest_res')
+                    
+                    node, out_file = strat.get_node_from_resource_pool('functional_to_anat_linear_xfm')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.example_func2highres_mat')
+    
+                    node, out_file = strat.get_node_from_resource_pool('functional_brain_mask')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.rest_mask')
+    
+                    node, out_file = strat.get_node_from_resource_pool('anatomical_brain')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.brain')
+    
+                    node, out_file = strat.get_node_from_resource_pool('anatomical_reorient')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.reorient')
+    
+                    node, out_file = strat.get_node_from_resource_pool('mean_functional')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.mean_functional')
+    
+                except:
+                    logConnectionError('VMHC', num_strat, strat.get_resource_pool(), '0019')
+                    raise
+                
+                
+                if 1 in c.fastVMHC:
+                    tmp = strategy()
+                    tmp.resource_pool = dict(strat.resource_pool)
+                    tmp.leaf_node = (strat.leaf_node)
+                    tmp.leaf_out_file = str(strat.leaf_out_file)
+                    tmp.name = list(strat.name)
+                    strat = tmp
+                    new_strat_list.append(strat)
+    
+    
+                strat.update_resource_pool({'vmhc_raw_score':(vmhc, 'outputspec.VMHC_FWHM_img')})
+                strat.update_resource_pool({'vmhc_z_score':(vmhc, 'outputspec.VMHC_Z_FWHM_img')})
+                strat.update_resource_pool({'vmhc_z_score_stat_map':(vmhc, 'outputspec.VMHC_Z_stat_FWHM_img')})
+                strat.append_name(vmhc.name)
+                
+                create_log_node(vmhc, 'outputspec.VMHC_FWHM_img', num_strat)
+                
+                num_strat += 1
 
-                node, out_file = strat.get_node_from_resource_pool('functional_brain_mask')
-                workflow.connect(node, out_file,
-                                 vmhc, 'inputspec.rest_mask')
-
-                node, out_file = strat.get_node_from_resource_pool('anatomical_brain')
-                workflow.connect(node, out_file,
-                                 vmhc, 'inputspec.brain')
-
-                node, out_file = strat.get_node_from_resource_pool('anatomical_reorient')
-                workflow.connect(node, out_file,
-                                 vmhc, 'inputspec.reorient')
-
-                node, out_file = strat.get_node_from_resource_pool('mean_functional')
-                workflow.connect(node, out_file,
-                                 vmhc, 'inputspec.mean_functional')
-
-            except:
-                logConnectionError('VMHC', num_strat, strat.get_resource_pool(), '0019')
-                raise
+        strat_list += new_strat_list
 
 
-            strat.update_resource_pool({'vmhc_raw_score':(vmhc, 'outputspec.VMHC_FWHM_img')})
-            strat.update_resource_pool({'vmhc_z_score':(vmhc, 'outputspec.VMHC_Z_FWHM_img')})
-            strat.update_resource_pool({'vmhc_z_score_stat_map':(vmhc, 'outputspec.VMHC_Z_stat_FWHM_img')})
-            strat.append_name(vmhc.name)
+        
+        new_strat_list = []
             
-            create_log_node(vmhc, 'outputspec.VMHC_FWHM_img', num_strat)
+        for strat in strat_list:
             
-            num_strat += 1
+            nodes = getNodeList(strat)
+
+            if (1 in c.fastVMHC) and ('vmhc' not in nodes):
+                                           
+                if 'func_mni_fsl_warp' in nodes:
+                    preproc = create_fast_vmhc(False)
+                else:
+                    preproc = create_fast_vmhc(True)
+    
+                preproc.inputs.inputspec.brain_symmetric = \
+                                                c.brainSymmetric
+                preproc.inputs.inputspec.symm_standard = \
+                                                c.symmStandard
+                preproc.inputs.fwhm_input.fwhm = c.fwhm
+                
+                if 'func_mni_fsl_warp' in nodes:
+                    preproc.inputs.inputspec.template_to_sym_warp = c.templateToSymmetricWarpFSL
+                else:
+                    preproc.inputs.inputspec.template_to_sym_warp = c.templateToSymmetricWarpANTS
+                    preproc.inputs.inputspec.template_to_sym_affine = c.templateToSymmetricAffineANTS
+       
+                
+                preproc.get_node('fwhm_input').iterables = ('fwhm',
+                                                            c.fwhm)
+    
+                vmhc = preproc.clone('fast_vmhc_%d' % num_strat)
+                
+    
+    
+                try:
+                    
+                    node, out_file = strat.get_leaf_properties()
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.rest_res')
+                    
+                    node, out_file = strat.get_node_from_resource_pool('functional_to_anat_linear_xfm')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.example_func2highres_mat')
+    
+                    node, out_file = strat.get_node_from_resource_pool('functional_brain_mask')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.rest_mask')
+    
+                    node, out_file = strat.get_node_from_resource_pool('anatomical_brain')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.anat_brain')
+                    
+                    node, out_file = strat.get_node_from_resource_pool('mni_normalized_anatomical')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.mni_anatomical')
+                    
+                    node, out_file = strat.get_node_from_resource_pool('anatomical_to_mni_nonlinear_xfm')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.anat_to_template_warp')
+                    
+                    #node, out_file = strat.get_node_from_resource_pool('')
+                    #workflow.connect(node, out_file,
+                    #                 vmhc, 'inputspec.template_to_sym_warp')
+                    
+                    node, out_file = strat.get_node_from_resource_pool('mean_functional')
+                    workflow.connect(node, out_file,
+                                     vmhc, 'inputspec.mean_functional')
+                    
+                    if 'func_mni_ants_warp' in nodes:
+                    
+                        node, out_file = strat.get_node_from_resource_pool('ants_affine_xfm')
+                        workflow.connect(node, out_file,
+                                         vmhc, 'inputspec.anat_to_template_affine')
+                        
+                        #node, out_file = strat.get_node_from_resource_pool('')
+                        #workflow.connect(node, out_file,
+                        #                 vmhc, 'inputspec.template_to_sym_affine')
+       
+    
+                except:
+                    logConnectionError('VMHC', num_strat, strat.get_resource_pool(), '0019')
+                    raise
+    
+    
+                strat.update_resource_pool({'vmhc_raw_score':(vmhc, 'outputspec.VMHC_FWHM_img')})
+                strat.update_resource_pool({'vmhc_z_score':(vmhc, 'outputspec.VMHC_Z_FWHM_img')})
+                strat.update_resource_pool({'vmhc_z_score_stat_map':(vmhc, 'outputspec.VMHC_Z_stat_FWHM_img')})
+                strat.append_name(vmhc.name)
+                
+                create_log_node(vmhc, 'outputspec.VMHC_FWHM_img', num_strat)
+                
+                num_strat += 1
+                
 
     strat_list += new_strat_list
 

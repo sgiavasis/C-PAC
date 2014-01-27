@@ -296,6 +296,9 @@ class MainFrame(wx.Frame):
                                 
                             if 'ANTS' in val and 'FSL' in val:
                                 val = [11]
+                                
+                            if ('fastVMHC' in name) and (1 in val) and (0 in val):
+                                val = [12]
                             
                             value = [s_map.get(item)
                                          for item in val if s_map.get(item) != None]
@@ -749,7 +752,7 @@ class MainFrame(wx.Frame):
                         else:
                             values.append(val)
                             
-                    if values == [10]:
+                    if values == [10] or values == [12]:
                         values = [1,0]
                     elif values == [11]:
                         values = ['ANTS','FSL']
