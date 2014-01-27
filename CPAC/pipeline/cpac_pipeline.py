@@ -1447,6 +1447,21 @@ def prep_workflow(sub_dict, c, strategies, run, p_name=None):
             logger.info("\n\n" + ("ERROR: Missing file - %s" % c.symmStandard) + "\n\n" + \
                         "Error name: cpac_pipeline_0018" + "\n\n")
             raise Exception
+        
+        if not os.path.exists(c.templateToSymmetricWarpANTS):
+            logger.info("\n\n" + ("ERROR: Missing file - %s" % c.templateToSymmetricWarpANTS) + "\n\n" + \
+                        "Error name: cpac_pipeline_0058" + "\n\n")
+            raise Exception
+        
+        if not os.path.exists(c.templateToSymmetricAffineANTS):
+            logger.info("\n\n" + ("ERROR: Missing file - %s" % c.templateToSymmetricAffineANTS) + "\n\n" + \
+                        "Error name: cpac_pipeline_0059" + "\n\n")
+            raise Exception
+        
+        if not os.path.exists(c.templateToSymmetricWarpFSL):
+            logger.info("\n\n" + ("ERROR: Missing file - %s" % c.templateToSymmetricWarpFSL) + "\n\n" + \
+                        "Error name: cpac_pipeline_0060" + "\n\n")
+            raise Exception
             
         
         for strat in strat_list:
@@ -1564,7 +1579,6 @@ def prep_workflow(sub_dict, c, strategies, run, p_name=None):
                 vmhc = preproc.clone('fast_vmhc_%d' % num_strat)
                 
     
-    
                 try:
                     
                     node, out_file = strat.get_leaf_properties()
@@ -1591,10 +1605,6 @@ def prep_workflow(sub_dict, c, strategies, run, p_name=None):
                     workflow.connect(node, out_file,
                                      vmhc, 'inputspec.anat_to_template_warp')
                     
-                    #node, out_file = strat.get_node_from_resource_pool('')
-                    #workflow.connect(node, out_file,
-                    #                 vmhc, 'inputspec.template_to_sym_warp')
-                    
                     node, out_file = strat.get_node_from_resource_pool('mean_functional')
                     workflow.connect(node, out_file,
                                      vmhc, 'inputspec.mean_functional')
@@ -1604,10 +1614,6 @@ def prep_workflow(sub_dict, c, strategies, run, p_name=None):
                         node, out_file = strat.get_node_from_resource_pool('ants_affine_xfm')
                         workflow.connect(node, out_file,
                                          vmhc, 'inputspec.anat_to_template_affine')
-                        
-                        #node, out_file = strat.get_node_from_resource_pool('')
-                        #workflow.connect(node, out_file,
-                        #                 vmhc, 'inputspec.template_to_sym_affine')
        
     
                 except:
