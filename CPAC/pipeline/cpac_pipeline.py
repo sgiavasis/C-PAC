@@ -1609,7 +1609,7 @@ def prep_workflow(sub_dict, c, strategies, run, p_name=None):
                     workflow.connect(node, out_file,
                                      vmhc, 'inputspec.mean_functional')
                     
-                    if 'func_mni_ants_warp' in nodes:
+                    if 'func_mni_fsl_warp' not in nodes:
                     
                         node, out_file = strat.get_node_from_resource_pool('ants_affine_xfm')
                         workflow.connect(node, out_file,
