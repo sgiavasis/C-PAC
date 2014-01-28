@@ -79,21 +79,21 @@ class VMHCSettings(wx.ScrolledWindow):
          control=control.COMBO_BOX, 
          name='templateToSymmetricWarpANTS', 
          type=dtype.STR, 
-         values = "$FSLDIR/data/standard/ANTS_MNI_to_sym_Warp.nii.gz",
+         values = "$FSLDIR/data/standard/ANTS_MNI_to_sym_2mm_Warp.nii.gz",
          comment="Included as part of the 'Image Resource Files' package available on the Install page of the User Guide.\n\nIt is not necessary to change this path unless you intend to use a non-standard symmetric template.")
         
         self.page.add(label="Template to Symmetric Template Affine (ANTS) - Fast VMHC only ", 
          control=control.COMBO_BOX, 
          name='templateToSymmetricAffineANTS', 
          type=dtype.STR, 
-         values = "$FSLDIR/data/standard/ANTS_MNI_to_sym_Affine.txt",
+         values = "$FSLDIR/data/standard/ANTS_MNI_to_sym_2mm_Affine.txt",
          comment="Included as part of the 'Image Resource Files' package available on the Install page of the User Guide.\n\nIt is not necessary to change this path unless you intend to use a non-standard symmetric template.")
         
         self.page.add(label="Template to Symmetric Template Transform (FSL) - Fast VMHC only ", 
          control=control.COMBO_BOX, 
          name='templateToSymmetricWarpFSL', 
          type=dtype.STR, 
-         values = "$FSLDIR/data/standard/FSL_MNI_to_sym_Warp.nii.gz",
+         values = "$FSLDIR/data/standard/FSL_MNI_to_sym_2mm_Warp.nii.gz",
          comment="Included as part of the 'Image Resource Files' package available on the Install page of the User Guide.\n\nIt is not necessary to change this path unless you intend to use a non-standard symmetric template.")
         
         self.page.add(label="FLIRT Configuration File ", 
