@@ -291,12 +291,12 @@ class MainFrame(wx.Frame):
 
                         elif ctrl.get_datatype() == 4:
 
-                            if 1 in val and 0 in val:
+                            if ('fastVMHC' not in name) and (1 in val) and (0 in val):
                                 val = [10]
                                 
                             if 'ANTS' in val and 'FSL' in val:
                                 val = [11]
-                                
+
                             if ('fastVMHC' in name) and (1 in val) and (0 in val):
                                 val = [12]
                             
