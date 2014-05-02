@@ -207,30 +207,11 @@ def run(config_file, output_path_file):
 
         analysis_map_gp[(resource_id, key)].append((pipeline_id, subject_id, scan_id, subject_path))
 
-
-    gpa_start_datetime = strftime("%Y-%m-%d")
-
-    timing = open(os.path.join(c.outputDirectory, 'group_analysis_timing_%s_%s.txt' % (c.pipelineName, gpa_start_datetime)), 'a')
-    
-    print >>timing, "Starting CPAC group-level analysis at system time: ", strftime("%Y-%m-%d %H:%M:%S")
-    print >>timing, "Pipeline configuration: ", c.pipelineName
-    print >>timing, "\n"
-        
-    timing.close()
-    
-    
-    # Start timing here
-    gpa_start_time = time.time()
-    
-    gpaTimeDict = {}
-    gpaTimeDict['Start_Time'] = strftime("%Y-%m-%d_%H:%M:%S")
-    
+   
 
 
     for resource, glob_key in analysis_map.keys():
         if resource == 'functional_mni':
-
-            wf_start_time = time.time()
 
             if 1 in c.runBASC:
 
@@ -258,14 +239,6 @@ def run(config_file, output_path_file):
 
                     elif 'pbs' in c.resourceManager.lower():
                         run_pbs_jobs(c, config_file, resource, analysis_map[(resource, glob_key)])
-
-            timing = open(os.path.join(c.outputDirectory, 'group_analysis_timing_%s_%s.txt' % (c.pipelineName, gpa_start_datetime)), 'a')
-
-            print >>timing, "Group analysis workflow completed for resource: ", resource
-            print >>timing, "Elapsed run time (minutes): ", ((time.time() - wf_start_time)/60)
-            print >>timing, ""
-            
-            timing.close()
 
 
             
@@ -344,56 +317,6 @@ def run(config_file, output_path_file):
     pid.close()
     
     
-    
-    
-    gpaTimeDict['End_Time'] = strftime("%Y-%m-%d_%H:%M:%S")
-    gpaTimeDict['Elapsed_Time_(minutes)'] = int(((time.time() - gpa_start_time)/60))
-    gpaTimeDict['Status'] = 'Complete'
-            
-    gpaTimeFields= ['Start_Time', 'End_Time', 'Elapsed_Time_(minutes)', 'Status']
-    timeHeader = dict((n, n) for n in gpaTimeFields)
-            
-    timeCSV = open(os.path.join(c.outputDirectory, 'cpac_group_timing_%s_%s.csv' % (c.pipelineName, gpa_start_datetime)), 'a')
-    readTimeCSV = open(os.path.join(c.outputDirectory, 'cpac_group_timing_%s_%s.csv' % (c.pipelineName, gpa_start_datetime)), 'rb')
-    timeWriter = csv.DictWriter(timeCSV, fieldnames=gpaTimeFields)
-    timeReader = csv.DictReader(readTimeCSV)
-            
-    headerExists = False
-    for line in timeReader:
-        if 'Start_Time' in line:
-            headerExists = True
-            
-    if headerExists == False:
-        timeWriter.writerow(timeHeader)
-                
-            
-    timeWriter.writerow(gpaTimeDict)
-    timeCSV.close()
-    readTimeCSV.close()
-    
-    
-    
-    
-            
-    timing = open(os.path.join(c.outputDirectory, 'group_analysis_timing_%s_%s.txt' % (c.pipelineName, gpa_start_datetime)), 'a')
-
-    print >>timing, "Group analysis workflow completed for resource: ", resource
-    print >>timing, "Elapsed run time (minutes): ", ((time.time() - wf_start_time)/60)
-    print >>timing, ""
-            
-            
-    print >>timing, "Entire group analysis run complete."
-    print >>timing, "Elapsed run time (minutes): ", ((time.time() - gpa_start_time)/60)
-    print >>timing, ""
-
-
-
-
-    timing.close()
-    #diag.close()
-
-
-
 
 
 
