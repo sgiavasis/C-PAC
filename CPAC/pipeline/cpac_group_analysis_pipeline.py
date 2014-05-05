@@ -132,7 +132,7 @@ def prep_group_analysis_workflow(c, resource, subject_infos):
             if os.path.exists(parameter_file):
                 import csv
                 measure_dict = {}
-                f = csv.DictReader(open(parameter_file,'r'))
+                f = csv.DictReader(open(parameter_file,'rU'))
 
                 for line in f:
                     measure_map = {}
